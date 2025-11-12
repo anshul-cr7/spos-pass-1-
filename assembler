@@ -1,0 +1,151 @@
+// -------------------- Pass 1 of Two Pass Assembler --------------------
+// Performs: Symbol Table generation, Location Counter handling, Intermediate Code generation
+
+import java.util.*;
+import java.io.*;
+
+public class Pass1Assembler {
+
+    // Class to store symbol table entries
+    static class Symbol {
+        String symbol;
+        int address;
+
+        Symbol(String symbol, int address) {
+            this.symbol = symbol;
+            this.address = address;
+        }
+    }
+
+    // Define operation tables for easy lookup
+    static Map<String, String> MOT = new HashMap<>(); // Mnemonic Opcode Table
+    static Map<String, String> REG = new HashMap<>(); // Register Table
+    static Map<String, String> DL = new HashMap<>();  // Declarative statements
+    static Map<String, String> AD = new HashMap<>();  // Assembler Directives
+
+    static {
+        // Machine OpCodes (MOT)
+        MOT.put("STOP", "(IS,00)");
+        MOT.put("ADD", "(IS,01)");
+        MOT.put("SUB", "(IS,02)");
+        MOT.put("MULT", "(IS,03)");
+        MOT.put("MOVER", "(IS,04)");
+        MOT.put("MOVEM", "(IS,05)");
+        MOT.put("COMP", "(IS,06)");
+        MOT.put("BC", "(IS,07)");
+        MOT.put("DIV", "(IS,08)");
+        MOT.put("READ", "(IS,09)");
+        MOT.put("PRINT", "(IS,10)");
+
+        // Registers
+        REG.put("AREG", "1");
+        REG.put("BREG", "2");
+        REG.put("CREG", "3");
+        REG.put("DREG", "4");
+
+        // Declarative statements
+        DL.put("DS", "(DL,01)");
+        DL.put("DC", "(DL,02)");
+
+        // Assembler Directives
+        AD.put("START", "(AD,01)");
+        AD.put("END", "(AD,02)");
+        AD.put("ORIGIN", "(AD,03)");
+        AD.put("EQU", "(AD,04)");
+    }
+
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new FileReader("input.txt"));
+
+        List<Symbol> symbolTable = new ArrayList<>();
+        int LC = 0; // Location Counter
+        String line;
+
+        System.out.println("Intermediate Code:\n");
+
+        while ((line = br.readLine()) != null) {
+            if (line.trim().length() == 0)
+                continue; // Skip empty lines
+
+            String[] parts = line.split("\\s+");
+
+            // -------------------- START Directive --------------------
+            if (parts[0].equals("START")) {
+                LC = Integer.parseInt(parts[1]);
+                System.out.println(AD.get("START") + " " + "(C," + LC + ")");
+                continue;
+            }
+
+            // -------------------- END Directive --------------------
+            if (parts[0].equals("END")) {
+                System.out.println(AD.get("END"));
+                break;
+            }
+
+            // -------------------- Label Handling --------------------
+            int index = 0;
+            if (!MOT.containsKey(parts[0]) && !AD.containsKey(parts[0]) && !DL.containsKey(parts[0])) {
+                // First word is a label
+                symbolTable.add(new Symbol(parts[0], LC));
+                index = 1; // Next token is actual mnemonic
+            }
+
+            // -------------------- Instruction Handling --------------------
+            String opcode = parts[index];
+
+            // Machine instructions
+            if (MOT.containsKey(opcode)) {
+                System.out.print(LC + " " + MOT.get(opcode) + " ");
+
+                if (parts.length > index + 1) {
+                    String reg = parts[index + 1].replace(",", "");
+                    if (REG.containsKey(reg))
+                        System.out.print("(R," + REG.get(reg) + ") ");
+                }
+
+                if (parts.length > index + 2) {
+                    String sym = parts[index + 2];
+                    System.out.println("(S," + sym + ")");
+                } else
+                    System.out.println();
+
+                LC++;
+            }
+
+            // Declarative statements (DS/DC)
+            else if (DL.containsKey(opcode)) {
+                symbolTable.add(new Symbol(parts[0], LC));
+
+                if (opcode.equals("DS")) {
+                    System.out.println(LC + " " + DL.get("DS") + " (C," + parts[2] + ")");
+                    LC += Integer.parseInt(parts[2]);
+                } else if (opcode.equals("DC")) {
+                    System.out.println(LC + " " + DL.get("DC") + " (C," + parts[2] + ")");
+                    LC++;
+                }
+            }
+        }
+
+        // -------------------- Display Symbol Table --------------------
+        System.out.println("\nSymbol Table:");
+        System.out.println("Symbol\tAddress");
+        for (Symbol s : symbolTable)
+            System.out.println(s.symbol + "\t" + s.address);
+
+        br.close();
+    }
+}
+// input file 
+START 100
+MOVER AREG, A
+ADD BREG, B
+LABEL1 SUB CREG, C
+MULT DREG, D
+STOP
+A DS 1
+B DS 1
+C DS 1
+D DS 1
+END
+
+

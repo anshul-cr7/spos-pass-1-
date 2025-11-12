@@ -1,0 +1,155 @@
+// -------------------- MACRO PROCESSOR PASS 1 --------------------
+// Builds MNT, MDT, ALA from source file (input.txt)
+
+import java.io.*;
+import java.util.*;
+
+public class MacroPass1 {
+
+    static class MNTEntry {
+        String name;
+        int mdtIndex;
+        MNTEntry(String name, int mdtIndex) {
+            this.name = name;
+            this.mdtIndex = mdtIndex;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        BufferedReader br = new BufferedReader(new FileReader("input.txt"));
+
+        List<MNTEntry> MNT = new ArrayList<>();
+        List<String> MDT = new ArrayList<>();
+        Map<String, Integer> ALA = new LinkedHashMap<>();
+
+        boolean insideMacro = false;
+        int mdtPtr = 0;
+        String line;
+
+        while ((line = br.readLine()) != null) {
+            line = line.trim();
+            if (line.equalsIgnoreCase("MACRO")) {
+                insideMacro = true;
+                continue;
+            }
+
+            if (insideMacro) {
+                if (line.equalsIgnoreCase("MEND")) {
+                    MDT.add("MEND");
+                    mdtPtr++;
+                    insideMacro = false;
+                    continue;
+                }
+
+                // First line after MACRO is macro prototype
+                if (MNT.isEmpty() || MDT.size() == 0 || MDT.get(MDT.size() - 1).equals("MEND")) {
+                    String[] parts = line.split("\\s+");
+                    String macroName = parts[0];
+                    String[] args = parts[1].split(",");
+
+                    // Build ALA
+                    ALA.clear();
+                    for (int i = 0; i < args.length; i++)
+                        ALA.put(args[i], i + 1);
+
+                    MNT.add(new MNTEntry(macroName, mdtPtr));
+                } else {
+                    // Replace parameters with positional notation
+                    for (String key : ALA.keySet()) {
+                        line = line.replace(key, "#" + ALA.get(key));
+                    }
+                    MDT.add(line);
+                    mdtPtr++;
+                }
+            }
+        }
+
+        br.close();
+
+        // -------- Display Tables --------
+        System.out.println("\n--- MNT (Macro Name Table) ---");
+        System.out.println("Macro\tMDT Index");
+        for (MNTEntry m : MNT)
+            System.out.println(m.name + "\t" + m.mdtIndex);
+
+        System.out.println("\n--- MDT (Macro Definition Table) ---");
+        for (int i = 0; i < MDT.size(); i++)
+            System.out.println(i + "\t" + MDT.get(i));
+
+        System.out.println("\n--- ALA (Argument List Array) ---");
+        for (String key : ALA.keySet())
+            System.out.println(key + " -> #" + ALA.get(key));
+    }
+}
+//// passs 2 
+// -------------------- MACRO PROCESSOR PASS 2 --------------------
+// Expands macro calls using tables generated in Pass 1
+
+import java.io.*;
+import java.util.*;
+
+public class MacroPass2 {
+
+    static class MNTEntry {
+        String name;
+        int mdtIndex;
+        MNTEntry(String name, int mdtIndex) {
+            this.name = name;
+            this.mdtIndex = mdtIndex;
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+
+        // Re-create tables from Pass 1 (in real project you'd read them from files)
+        Map<String, Integer> ALA = new LinkedHashMap<>();
+        List<MNTEntry> MNT = new ArrayList<>();
+        List<String> MDT = new ArrayList<>();
+
+        // Example hardcoded tables (you can populate dynamically)
+        ALA.put("&ARG1", 1);
+        ALA.put("&ARG2", 2);
+        MNT.add(new MNTEntry("INCR", 0));
+        MDT.add("ADD #1,#2");
+        MDT.add("MOVER AREG,#1");
+        MDT.add("MEND");
+
+        BufferedReader br = new BufferedReader(new FileReader("input2.txt")); // program with macro call
+        String line;
+        System.out.println("\n--- Expanded Code ---\n");
+
+        while ((line = br.readLine()) != null) {
+            line = line.trim();
+            if (line.length() == 0) continue;
+
+            String[] parts = line.split("\\s+");
+            String name = parts[0];
+
+            // Check if macro call
+            boolean isMacro = false;
+            for (MNTEntry m : MNT) {
+                if (m.name.equals(name)) {
+                    isMacro = true;
+                    int index = m.mdtIndex;
+                    String[] actualArgs = parts[1].split(",");
+
+                    // Expand macro
+                    while (!MDT.get(index).equals("MEND")) {
+                        String temp = MDT.get(index);
+                        for (int i = 0; i < actualArgs.length; i++) {
+                            temp = temp.replace("#" + (i + 1), actualArgs[i]);
+                        }
+                        System.out.println(temp);
+                        index++;
+                    }
+                }
+            }
+
+            // If not a macro call → print as is
+            if (!isMacro)
+                System.out.println(line);
+        }
+
+        br.close();
+    }
+}

@@ -1,0 +1,119 @@
+// Java program to simulate CPU Scheduling Algorithms: FCFS and SJF (Preemptive)
+
+import java.util.*;
+
+public class CPUScheduling {
+
+    // Class to store process details
+    static class Process {
+        int pid;  // Process ID
+        int at;   // Arrival Time
+        int bt;   // Burst Time
+        int rt;   // Remaining Time (used for SJF)
+        int ct;   // Completion Time
+        int tat;  // Turnaround Time
+        int wt;   // Waiting Time
+
+        Process(int pid, int at, int bt) {
+            this.pid = pid;
+            this.at = at;
+            this.bt = bt;
+            this.rt = bt;
+        }
+    }
+
+    // -------------------- FCFS (First Come First Serve) --------------------
+    static void fcfs(List<Process> list) {
+        System.out.println("\n--- FCFS Scheduling ---");
+        list.sort((a, b) -> a.at - b.at); // Sort by Arrival Time
+
+        int time = 0;
+        for (Process p : list) {
+            if (time < p.at) time = p.at; // CPU idle time handling
+            time += p.bt;
+            p.ct = time;
+            p.tat = p.ct - p.at;
+            p.wt = p.tat - p.bt;
+        }
+
+        printTable(list);
+    }
+
+    // -------------------- SJF (Preemptive / SRTF) --------------------
+    static void sjf(List<Process> list) {
+        System.out.println("\n--- SJF (Preemptive) Scheduling ---");
+        int n = list.size();
+        int completed = 0, time = 0;
+        Process current = null;
+
+        while (completed < n) {
+            // Find process with shortest remaining time among arrived
+            Process shortest = null;
+            for (Process p : list) {
+                if (p.at <= time && p.rt > 0) {
+                    if (shortest == null || p.rt < shortest.rt)
+                        shortest = p;
+                }
+            }
+
+            // If no process has arrived yet
+            if (shortest == null) {
+                time++;
+                continue;
+            }
+
+            // Run process for 1 time unit
+            shortest.rt--;
+            time++;
+
+            // If process finished
+            if (shortest.rt == 0) {
+                completed++;
+                shortest.ct = time;
+                shortest.tat = shortest.ct - shortest.at;
+                shortest.wt = shortest.tat - shortest.bt;
+            }
+        }
+
+        printTable(list);
+    }
+
+    // -------------------- Print Output Table --------------------
+    static void printTable(List<Process> list) {
+        System.out.println("PID\tAT\tBT\tCT\tTAT\tWT");
+        for (Process p : list)
+            System.out.println("P" + p.pid + "\t" + p.at + "\t" + p.bt + "\t" + p.ct + "\t" + p.tat + "\t" + p.wt);
+
+        // Calculate average times
+        double avgTAT = list.stream().mapToDouble(p -> p.tat).average().orElse(0);
+        double avgWT = list.stream().mapToDouble(p -> p.wt).average().orElse(0);
+
+        System.out.printf("\nAverage Turnaround Time = %.2f", avgTAT);
+        System.out.printf("\nAverage Waiting Time = %.2f\n", avgWT);
+    }
+
+    // -------------------- MAIN FUNCTION --------------------
+    public static void main(String[] args) {
+        // Given data from the table
+        List<Process> input = Arrays.asList(
+            new Process(1, 0, 6),
+            new Process(2, 1, 4),
+            new Process(3, 4, 8),
+            new Process(4, 3, 3)
+        );
+
+        // Create deep copies for both algorithms
+        List<Process> fcfsList = new ArrayList<>();
+        List<Process> sjfList = new ArrayList<>();
+        for (Process p : input) {
+            fcfsList.add(new Process(p.pid, p.at, p.bt));
+            sjfList.add(new Process(p.pid, p.at, p.bt));
+        }
+
+        // Run both algorithms
+        fcfs(fcfsList);
+        sjf(sjfList);
+    }
+}
+
+
